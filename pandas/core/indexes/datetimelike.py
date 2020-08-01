@@ -240,9 +240,8 @@ class DatetimeIndexOpsMixin(ExtensionIndex):
         i8 = self.asi8
         try:
             # quick check
-            if len(i8) and self.is_monotonic:
-                if i8[0] != iNaT:
-                    return self._box_func(i8[0])
+            if len(i8) and self.is_monotonic and i8[0] != iNaT:
+                return self._box_func(i8[0])
 
             if self.hasnans:
                 if skipna:
@@ -297,9 +296,8 @@ class DatetimeIndexOpsMixin(ExtensionIndex):
         i8 = self.asi8
         try:
             # quick check
-            if len(i8) and self.is_monotonic:
-                if i8[-1] != iNaT:
-                    return self._box_func(i8[-1])
+            if len(i8) and self.is_monotonic and i8[-1] != iNaT:
+                return self._box_func(i8[-1])
 
             if self.hasnans:
                 if skipna:
@@ -577,9 +575,12 @@ class DatetimeIndexOpsMixin(ExtensionIndex):
         else:
             if is_list_like(loc):
                 loc = lib.maybe_indices_to_slice(ensure_int64(np.array(loc)), len(self))
-            if isinstance(loc, slice) and loc.step in (1, None):
-                if loc.start in (0, None) or loc.stop in (len(self), None):
-                    freq = self.freq
+            if (
+                isinstance(loc, slice)
+                and loc.step in (1, None)
+                and (loc.start in (0, None) or loc.stop in (len(self), None))
+            ):
+                freq = self.freq
 
         arr = type(self._data)._simple_new(new_i8s, dtype=self.dtype, freq=freq)
         return type(self)._simple_new(arr, name=self.name)
@@ -652,8 +653,7 @@ class DatetimeTimedeltaMixin(DatetimeIndexOpsMixin, Int64Index):
 
     @Appender(Index.difference.__doc__)
     def difference(self, other, sort=None):
-        new_idx = super().difference(other, sort=sort)._with_freq(None)
-        return new_idx
+        return super().difference(other, sort=sort)._with_freq(None)
 
     def intersection(self, other, sort=False):
         """
@@ -696,10 +696,9 @@ class DatetimeTimedeltaMixin(DatetimeIndexOpsMixin, Int64Index):
 
         if not isinstance(other, type(self)):
             result = Index.intersection(self, other, sort=sort)
-            if isinstance(result, type(self)):
-                if result.freq is None:
-                    # TODO: no tests rely on this; needed?
-                    result = result._with_freq("infer")
+            if isinstance(result, type(self)) and result.freq is None:
+                # TODO: no tests rely on this; needed?
+                result = result._with_freq("infer")
             assert result.name == res_name
             return result
 
@@ -713,11 +712,7 @@ class DatetimeTimedeltaMixin(DatetimeIndexOpsMixin, Int64Index):
             return result
 
         # to make our life easier, "sort" the two ranges
-        if self[0] <= other[0]:
-            left, right = self, other
-        else:
-            left, right = other, self
-
+        left, right = (self, other) if self[0] <= other[0] else (other, self)
         # after sorting, the intersection always starts with the right index
         # and ends with the index of which the last elements is smallest
         end = min(left[-1], right[-1])
@@ -776,11 +771,7 @@ class DatetimeTimedeltaMixin(DatetimeIndexOpsMixin, Int64Index):
             return True
 
         # to make our life easier, "sort" the two ranges
-        if self[0] <= other[0]:
-            left, right = self, other
-        else:
-            left, right = other, self
-
+        left, right = (self, other) if self[0] <= other[0] else (other, self)
         right_start = right[0]
         left_end = left[-1]
 
@@ -846,13 +837,13 @@ class DatetimeTimedeltaMixin(DatetimeIndexOpsMixin, Int64Index):
             elif result.freq is None:
                 # TODO: no tests rely on this; needed?
                 result = result._with_freq("infer")
-            return result
         else:
             i8self = Int64Index._simple_new(self.asi8, name=self.name)
             i8other = Int64Index._simple_new(other.asi8, name=other.name)
             i8result = i8self._union(i8other, sort=sort)
             result = type(self)(i8result, dtype=self.dtype, freq="infer")
-            return result
+
+        return result
 
     # --------------------------------------------------------------------
     # Join Methods

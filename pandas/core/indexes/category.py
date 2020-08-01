@@ -545,7 +545,7 @@ class CategoricalIndex(ExtensionIndex, accessor.PandasDelegate):
         if self.is_unique and self.equals(target):
             return np.arange(len(self), dtype="intp")
 
-        if method == "pad" or method == "backfill":
+        if method in ["pad", "backfill"]:
             raise NotImplementedError(
                 "method='pad' and method='backfill' not "
                 "implemented yet for CategoricalIndex"

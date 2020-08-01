@@ -158,7 +158,7 @@ def find_valid_index(values, how: str):
     if how == "first":
         idxpos = is_valid[::].argmax()
 
-    if how == "last":
+    elif how == "last":
         idxpos = len(values) - 1 - is_valid[::-1].argmax()
 
     chk_notna = is_valid[idxpos]
@@ -704,10 +704,9 @@ def _interp_limit(invalid, fw_limit, bw_limit):
     def inner(invalid, limit):
         limit = min(limit, N)
         windowed = _rolling_window(invalid, limit + 1).all(1)
-        idx = set(np.where(windowed)[0] + limit) | set(
+        return set(np.where(windowed)[0] + limit) | set(
             np.where((~invalid[: limit + 1]).cumsum() == 0)[0]
         )
-        return idx
 
     if fw_limit is not None:
 

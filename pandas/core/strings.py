@@ -164,11 +164,7 @@ def _map_stringarray(
 
     if is_integer_dtype(dtype) or is_bool_dtype(dtype):
         constructor: Union[Type[IntegerArray], Type[BooleanArray]]
-        if is_integer_dtype(dtype):
-            constructor = IntegerArray
-        else:
-            constructor = BooleanArray
-
+        constructor = IntegerArray if is_integer_dtype(dtype) else BooleanArray
         na_value_is_na = isna(na_value)
         if na_value_is_na:
             na_value = 1
@@ -1168,10 +1164,9 @@ def str_extractall(arr, pat, flags=0):
     index = MultiIndex.from_tuples(index_list, names=arr.index.names + ["match"])
     dtype = _result_dtype(arr)
 
-    result = arr._constructor_expanddim(
+    return arr._constructor_expanddim(
         match_list, index=index, columns=columns, dtype=dtype
     )
-    return result
 
 
 def str_get_dummies(arr, sep="|"):
@@ -1525,22 +1520,16 @@ def str_pad(arr, width, side="left", fillchar=" "):
 
 def str_split(arr, pat=None, n=None):
 
-    if pat is None:
+    if len(pat) == 1 or pat is None:
         if n is None or n == 0:
             n = -1
         f = lambda x: x.split(pat, n)
     else:
-        if len(pat) == 1:
-            if n is None or n == 0:
-                n = -1
-            f = lambda x: x.split(pat, n)
-        else:
-            if n is None or n == -1:
-                n = 0
-            regex = re.compile(pat)
-            f = lambda x: regex.split(x, maxsplit=n)
-    res = _na_map(f, arr)
-    return res
+        if n is None or n == -1:
+            n = 0
+        regex = re.compile(pat)
+        f = lambda x: regex.split(x, maxsplit=n)
+    return _na_map(f, arr)
 
 
 def str_rsplit(arr, pat=None, n=None):
@@ -1548,8 +1537,7 @@ def str_rsplit(arr, pat=None, n=None):
     if n is None or n == 0:
         n = -1
     f = lambda x: x.rsplit(pat, n)
-    res = _na_map(f, arr)
-    return res
+    return _na_map(f, arr)
 
 
 def str_slice(arr, start=None, stop=None, step=None):
@@ -1705,10 +1693,7 @@ def str_slice_replace(arr, start=None, stop=None, repl=None):
         repl = ""
 
     def f(x):
-        if x[start:stop] == "":
-            local_stop = start
-        else:
-            local_stop = stop
+        local_stop = start if x[start:stop] == "" else stop
         y = ""
         if start is not None:
             y += x[:start]

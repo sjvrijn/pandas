@@ -339,9 +339,6 @@ class ReadCSVMemoryGrowth(BaseIO):
         # see gh-24805.
         result = read_csv(self.fname, chunksize=self.chunksize)
 
-        for _ in result:
-            pass
-
 
 class ReadCSVParseSpecialDate(StringIORewind):
     params = (["mY", "mdY", "hm"],)

@@ -407,14 +407,13 @@ class CategoricalDtype(PandasExtensionDtype, ExtensionDtype):
             categories = list(categories)  # breaks if a np.array of categories
             cat_array = hash_tuples(categories)
         else:
-            if categories.dtype == "O":
-                if len({type(x) for x in categories}) != 1:
-                    # TODO: hash_array doesn't handle mixed types. It casts
-                    # everything to a str first, which means we treat
-                    # {'1', '2'} the same as {'1', 2}
-                    # find a better solution
-                    hashed = hash((tuple(categories), ordered))
-                    return hashed
+            if categories.dtype == "O" and len({type(x) for x in categories}) != 1:
+                # TODO: hash_array doesn't handle mixed types. It casts
+                # everything to a str first, which means we treat
+                # {'1', '2'} the same as {'1', 2}
+                # find a better solution
+                hashed = hash((tuple(categories), ordered))
+                return hashed
 
             if is_datetime64tz_dtype(categories.dtype):
                 # Avoid future warning.
@@ -890,7 +889,7 @@ class PeriodDtype(dtypes.PeriodDtypeBase, PandasExtensionDtype):
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, str):
-            return other == self.name or other == self.name.title()
+            return other in [self.name, self.name.title()]
 
         return isinstance(other, PeriodDtype) and self.freq == other.freq
 
@@ -911,10 +910,7 @@ class PeriodDtype(dtypes.PeriodDtypeBase, PandasExtensionDtype):
             # but doesn't regard freq str like "U" as dtype.
             if dtype.startswith("period[") or dtype.startswith("Period["):
                 try:
-                    if cls._parse_dtype_strict(dtype) is not None:
-                        return True
-                    else:
-                        return False
+                    return cls._parse_dtype_strict(dtype) is not None
                 except ValueError:
                     return False
             else:
@@ -945,11 +941,7 @@ class PeriodDtype(dtypes.PeriodDtypeBase, PandasExtensionDtype):
         from pandas.core.arrays import PeriodArray
         from pandas.core.arrays._arrow_utils import pyarrow_array_to_numpy_and_mask
 
-        if isinstance(array, pyarrow.Array):
-            chunks = [array]
-        else:
-            chunks = array.chunks
-
+        chunks = [array] if isinstance(array, pyarrow.Array) else array.chunks
         results = []
         for arr in chunks:
             data, mask = pyarrow_array_to_numpy_and_mask(arr, dtype="int64")
@@ -1122,10 +1114,7 @@ class IntervalDtype(PandasExtensionDtype):
         if isinstance(dtype, str):
             if dtype.lower().startswith("interval"):
                 try:
-                    if cls.construct_from_string(dtype) is not None:
-                        return True
-                    else:
-                        return False
+                    return cls.construct_from_string(dtype) is not None
                 except (ValueError, TypeError):
                     return False
             else:
@@ -1142,11 +1131,7 @@ class IntervalDtype(PandasExtensionDtype):
 
         from pandas.core.arrays import IntervalArray
 
-        if isinstance(array, pyarrow.Array):
-            chunks = [array]
-        else:
-            chunks = array.chunks
-
+        chunks = [array] if isinstance(array, pyarrow.Array) else array.chunks
         results = []
         for arr in chunks:
             left = np.asarray(arr.storage.field("left"), dtype=self.subtype)

@@ -384,10 +384,9 @@ default 'raise'
             # operate on naive timestamps, then convert back to aware
             naive = self.tz_localize(None)
             result = naive._round(freq, mode, ambiguous, nonexistent)
-            aware = result.tz_localize(
+            return result.tz_localize(
                 self.tz, ambiguous=ambiguous, nonexistent=nonexistent
             )
-            return aware
 
         values = self.view("i8")
         result = round_nsint64(values, mode, freq)
@@ -856,8 +855,8 @@ class DatetimeLikeArrayMixin(
         return value
 
     def _validate_searchsorted_value(self, value):
-        msg = "searchsorted requires compatible dtype or scalar"
         if not is_list_like(value):
+            msg = "searchsorted requires compatible dtype or scalar"
             value = self._validate_scalar(value, msg, cast_str=True)
         else:
             # TODO: cast_str?  we accept it for scalar
@@ -961,11 +960,7 @@ class DatetimeLikeArrayMixin(
         """
         from pandas import Index, Series
 
-        if dropna:
-            values = self[~self.isna()]._data
-        else:
-            values = self._data
-
+        values = self[~self.isna()]._data if dropna else self._data
         cls = type(self)
 
         result = value_counts(values, sort=False, dropna=dropna)
@@ -1050,11 +1045,7 @@ class DatetimeLikeArrayMixin(
 
         if mask.any():
             if method is not None:
-                if method == "pad":
-                    func = missing.pad_1d
-                else:
-                    func = missing.backfill_1d
-
+                func = missing.pad_1d if method == "pad" else missing.backfill_1d
                 values = self._data
                 if not is_period_dtype(self.dtype):
                     # For PeriodArray self._data is i8, which gets copied
@@ -1372,8 +1363,7 @@ class DatetimeLikeArrayMixin(
             if isinstance(freq, str):
                 freq = to_offset(freq)
             offset = periods * freq
-            result = self + offset
-            return result
+            return self + offset
 
         if periods == 0:
             # immutable so OK

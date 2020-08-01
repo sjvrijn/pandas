@@ -62,8 +62,7 @@ def flatten(l):
     """
     for el in l:
         if _iterable_not_string(el):
-            for s in flatten(el):
-                yield s
+            yield from flatten(el)
         else:
             yield el
 
@@ -129,8 +128,8 @@ def is_bool_indexer(key: Any) -> bool:
             key = np.asarray(key)
 
             if not lib.is_bool_array(key):
-                na_msg = "Cannot mask with non-boolean array containing NA / NaN values"
                 if isna(key).any():
+                    na_msg = "Cannot mask with non-boolean array containing NA / NaN values"
                     raise ValueError(na_msg)
                 return False
             return True

@@ -131,10 +131,7 @@ def _sparse_array_op(
             result = op(left.to_dense(), right.to_dense())
             fill = op(_get_fill(left), _get_fill(right))
 
-        if left.sp_index.ngaps == 0:
-            index = left.sp_index
-        else:
-            index = right.sp_index
+        index = left.sp_index if left.sp_index.ngaps == 0 else right.sp_index
     elif left.sp_index.equals(right.sp_index):
         with np.errstate(all="ignore"):
             result = op(left.sp_values, right.sp_values)
@@ -317,9 +314,8 @@ class SparseArray(PandasObject, ExtensionArray, ExtensionOpsMixin):
             raise Exception("must only pass scalars with an index")
 
         if is_scalar(data):
-            if index is not None:
-                if data is None:
-                    data = np.nan
+            if index is not None and data is None:
+                data = np.nan
 
             if index is not None:
                 npoints = len(index)
@@ -576,8 +572,7 @@ class SparseArray(PandasObject, ExtensionArray, ExtensionOpsMixin):
         >>> s.density
         0.6
         """
-        r = float(self.sp_index.npoints) / float(self.sp_index.length)
-        return r
+        return float(self.sp_index.npoints) / float(self.sp_index.length)
 
     @property
     def npoints(self) -> int:
@@ -737,25 +732,17 @@ class SparseArray(PandasObject, ExtensionArray, ExtensionOpsMixin):
 
         keys, counts = algos._value_counts_arraylike(self.sp_values, dropna=dropna)
         fcounts = self.sp_index.ngaps
-        if fcounts > 0:
-            if self._null_fill_value and dropna:
-                pass
+        if fcounts > 0 and (not self._null_fill_value or not dropna):
+            mask = isna(keys) if self._null_fill_value else keys == self.fill_value
+            if mask.any():
+                counts[mask] += fcounts
             else:
-                if self._null_fill_value:
-                    mask = isna(keys)
-                else:
-                    mask = keys == self.fill_value
-
-                if mask.any():
-                    counts[mask] += fcounts
-                else:
-                    keys = np.insert(keys, 0, self.fill_value)
-                    counts = np.insert(counts, 0, fcounts)
+                keys = np.insert(keys, 0, self.fill_value)
+                counts = np.insert(counts, 0, fcounts)
 
         if not isinstance(keys, ABCIndexClass):
             keys = Index(keys)
-        result = Series(counts, index=keys)
-        return result
+        return Series(counts, index=keys)
 
     # --------
     # Indexing
@@ -788,11 +775,7 @@ class SparseArray(PandasObject, ExtensionArray, ExtensionOpsMixin):
             # key's fill_value for True / False, and then do an intersection
             # on the indices of the sp_values.
             if isinstance(key, SparseArray):
-                if is_bool_dtype(key):
-                    key = key.to_dense()
-                else:
-                    key = np.asarray(key)
-
+                key = key.to_dense() if is_bool_dtype(key) else np.asarray(key)
             key = check_array_indexer(self, key)
 
             if com.is_bool_indexer(key):
@@ -961,11 +944,7 @@ class SparseArray(PandasObject, ExtensionArray, ExtensionOpsMixin):
         values = []
         length = 0
 
-        if to_concat:
-            sp_kind = to_concat[0].kind
-        else:
-            sp_kind = "integer"
-
+        sp_kind = to_concat[0].kind if to_concat else "integer"
         if sp_kind == "integer":
             indices = []
 
@@ -1170,11 +1149,7 @@ class SparseArray(PandasObject, ExtensionArray, ExtensionOpsMixin):
         if method is None:
             raise TypeError(f"cannot perform {name} with type {self.dtype}")
 
-        if skipna:
-            arr = self
-        else:
-            arr = self.dropna()
-
+        arr = self if skipna else self.dropna()
         # we don't support these kwargs.
         # They should only be present when called via pandas, so do it here.
         # instead of in `any` / `all` (which will raise if they're present,

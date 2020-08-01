@@ -968,7 +968,7 @@ b  2""",
             key = base.OutputKey(label=name, position=idx)
             output[key] = result
 
-        if len(output) == 0:
+        if not output:
             raise DataError("No numeric types to aggregate")
 
         return self._wrap_transformed_output(output)
@@ -1045,7 +1045,7 @@ b  2""",
                 output[key] = maybe_cast_result(result, obj, how=how)
                 idx += 1
 
-        if len(output) == 0:
+        if not output:
             raise DataError("No numeric types to aggregate")
 
         return self._wrap_aggregated_output(output)
@@ -1086,7 +1086,7 @@ b  2""",
             key = base.OutputKey(label=name, position=idx)
             output[key] = maybe_cast_result(result, obj, numeric_only=True)
 
-        if len(output) == 0:
+        if not output:
             return self._python_apply_general(f, self._selected_obj)
 
         if self.grouper._filter_empty_groups:
@@ -2436,9 +2436,8 @@ class GroupBy(_GroupBy[FrameOrSeries]):
         """
         if result_is_index and aggregate:
             raise ValueError("'result_is_index' and 'aggregate' cannot both be True!")
-        if post_processing:
-            if not callable(post_processing):
-                raise ValueError("'post_processing' must be a callable!")
+        if post_processing and not callable(post_processing):
+            raise ValueError("'post_processing' must be a callable!")
         if pre_processing:
             if not callable(pre_processing):
                 raise ValueError("'pre_processing' must be a callable!")
@@ -2461,11 +2460,7 @@ class GroupBy(_GroupBy[FrameOrSeries]):
             if numeric_only and not is_numeric_dtype(values):
                 continue
 
-            if aggregate:
-                result_sz = ngroups
-            else:
-                result_sz = len(values)
-
+            result_sz = ngroups if aggregate else len(values)
             result = np.zeros(result_sz, dtype=cython_dtype)
             if needs_2d:
                 result = result.reshape((-1, 1))
@@ -2517,7 +2512,7 @@ class GroupBy(_GroupBy[FrameOrSeries]):
             output[key] = result
 
         # error_msg is "" on an frame/series with no rows or columns
-        if len(output) == 0 and error_msg != "":
+        if not output and error_msg != "":
             raise TypeError(error_msg)
 
         if aggregate:

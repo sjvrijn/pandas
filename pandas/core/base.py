@@ -269,10 +269,9 @@ class SelectionMixin:
             return f
 
         f = getattr(np, arg, None)
-        if f is not None:
-            if hasattr(self, "__array__"):
-                # in particular exclude Window
-                return f(self, *args, **kwargs)
+        if f is not None and hasattr(self, "__array__"):
+            # in particular exclude Window
+            return f(self, *args, **kwargs)
 
         raise AttributeError(
             f"'{arg}' is not a valid function for '{type(self).__name__}' object"
@@ -847,8 +846,8 @@ class IndexOpsMixin:
         # TODO(GH-24345): Avoid potential double copy
         if copy or na_value is not lib.no_default:
             result = result.copy()
-            if na_value is not lib.no_default:
-                result[self.isna()] = na_value
+        if na_value is not lib.no_default:
+            result[self.isna()] = na_value
         return result
 
     @property
@@ -1242,7 +1241,7 @@ class IndexOpsMixin:
         1.0    1
         dtype: int64
         """
-        result = value_counts(
+        return value_counts(
             self,
             sort=sort,
             ascending=ascending,
@@ -1250,7 +1249,6 @@ class IndexOpsMixin:
             bins=bins,
             dropna=dropna,
         )
-        return result
 
     def unique(self):
         values = self._values
@@ -1501,13 +1499,11 @@ class IndexOpsMixin:
         return algorithms.searchsorted(self._values, value, side=side, sorter=sorter)
 
     def drop_duplicates(self, keep="first"):
-        if isinstance(self, ABCIndexClass):
-            if self.is_unique:
-                return self._shallow_copy()
+        if isinstance(self, ABCIndexClass) and self.is_unique:
+            return self._shallow_copy()
 
         duplicated = self.duplicated(keep=keep)
-        result = self[np.logical_not(duplicated)]
-        return result
+        return self[np.logical_not(duplicated)]
 
     def duplicated(self, keep="first"):
         if isinstance(self, ABCIndexClass):

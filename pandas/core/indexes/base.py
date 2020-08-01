@@ -112,15 +112,18 @@ _index_doc_kwargs = dict(
     unique="Index",
     duplicated="np.ndarray",
 )
-_index_shared_docs = dict()
+_index_shared_docs = {}
 str_t = str
 
 
 def _make_comparison_op(op, cls):
     def cmp_method(self, other):
-        if isinstance(other, (np.ndarray, Index, ABCSeries, ExtensionArray)):
-            if other.ndim > 0 and len(self) != len(other):
-                raise ValueError("Lengths must match to compare")
+        if (
+            isinstance(other, (np.ndarray, Index, ABCSeries, ExtensionArray))
+            and other.ndim > 0
+            and len(self) != len(other)
+        ):
+            raise ValueError("Lengths must match to compare")
 
         if is_object_dtype(self.dtype) and isinstance(other, ABCCategorical):
             left = type(other)(self._values, dtype=other.dtype)
@@ -179,10 +182,9 @@ def _new_Index(cls, d):
 
         return _new_PeriodIndex(cls, **d)
 
-    if issubclass(cls, ABCMultiIndex):
-        if "labels" in d and "codes" not in d:
-            # GH#23752 "labels" kwarg has been replaced with "codes"
-            d["codes"] = d.pop("labels")
+    if issubclass(cls, ABCMultiIndex) and "labels" in d and "codes" not in d:
+        # GH#23752 "labels" kwarg has been replaced with "codes"
+        d["codes"] = d.pop("labels")
 
     return cls.__new__(cls, **d)
 
@@ -854,9 +856,7 @@ class Index(IndexOpsMixin, PandasObject):
         if data is None:
             data = ""
 
-        res = f"{klass_name}({data}{prepr})"
-
-        return res
+        return f"{klass_name}({data}{prepr})"
 
     def _format_space(self) -> str_t:
 
@@ -932,7 +932,6 @@ class Index(IndexOpsMixin, PandasObject):
         if is_object_dtype(values.dtype):
             values = lib.maybe_convert_objects(values, safe=1)
 
-        if is_object_dtype(values.dtype):
             result = [pprint_thing(x, escape_chars=("\t", "\r", "\n")) for x in values]
 
             # could have nans
@@ -1307,10 +1306,7 @@ class Index(IndexOpsMixin, PandasObject):
         if level is not None and not is_list_like(level):
             level = [level]
 
-        if inplace:
-            idx = self
-        else:
-            idx = self._shallow_copy()
+        idx = self if inplace else self._shallow_copy()
         idx._set_names(names, level=level)
         if not inplace:
             return idx
@@ -1552,11 +1548,7 @@ class Index(IndexOpsMixin, PandasObject):
             Index of unique values for level.
         """
         assert level is None or level == 0
-        if mapper is None:
-            grouper = self
-        else:
-            grouper = self.map(mapper)
-
+        grouper = self if mapper is None else self.map(mapper)
         return grouper, None, None
 
     # --------------------------------------------------------------------
@@ -2981,7 +2973,7 @@ class Index(IndexOpsMixin, PandasObject):
                 "Reindexing only valid with uniquely valued Index objects"
             )
 
-        if method == "pad" or method == "backfill":
+        if method in ["pad", "backfill"]:
             indexer = self._get_fill_indexer(target, method, limit, tolerance)
         elif method == "nearest":
             indexer = self._get_nearest_indexer(target, limit, tolerance)
@@ -3090,8 +3082,7 @@ class Index(IndexOpsMixin, PandasObject):
         tolerance,
     ) -> np.ndarray:
         distance = abs(self._values[indexer] - target)
-        indexer = np.where(distance <= tolerance, indexer, -1)
-        return indexer
+        return np.where(distance <= tolerance, indexer, -1)
 
     # --------------------------------------------------------------------
     # Indexer Conversion Methods
@@ -3220,8 +3211,7 @@ class Index(IndexOpsMixin, PandasObject):
         -------
         converted_keyarr : array-like
         """
-        keyarr = com.asarray_tuplesafe(keyarr)
-        return keyarr
+        return com.asarray_tuplesafe(keyarr)
 
     def _convert_index_indexer(self, keyarr):
         """
@@ -3601,9 +3591,8 @@ class Index(IndexOpsMixin, PandasObject):
             other, level, how=how, return_indexers=return_indexers
         )
 
-        if flip_order:
-            if isinstance(result, tuple):
-                return result[0], result[2], result[1]
+        if flip_order and isinstance(result, tuple):
+            return result[0], result[2], result[1]
         return result
 
     def _join_non_unique(self, other, how="left", return_indexers=False):
@@ -4139,7 +4128,7 @@ class Index(IndexOpsMixin, PandasObject):
         to_concat = [self]
 
         if isinstance(other, (list, tuple)):
-            to_concat = to_concat + list(other)
+            to_concat += list(other)
         else:
             to_concat.append(other)
 
@@ -4610,9 +4599,7 @@ class Index(IndexOpsMixin, PandasObject):
         """
         Should an integer key be treated as positional?
         """
-        if self.holds_integer() or self.is_boolean():
-            return False
-        return True
+        return not self.holds_integer() and not self.is_boolean()
 
     def _get_values_for_loc(self, series: "Series", loc, key):
         """
@@ -4983,11 +4970,7 @@ class Index(IndexOpsMixin, PandasObject):
         """
         assert kind in ["getitem", "iloc"]
 
-        if key is None:
-            pass
-        elif is_integer(key):
-            pass
-        else:
+        if key is not None and not is_integer(key):
             self._invalid_indexer(form, key)
 
     def _maybe_cast_slice_bound(self, label, side: str_t, kind):
@@ -5089,11 +5072,11 @@ class Index(IndexOpsMixin, PandasObject):
                 slc = lib.maybe_booleans_to_slice(slc.view("u1"))
             else:
                 slc = lib.maybe_indices_to_slice(slc.astype("i8"), len(self))
-            if isinstance(slc, np.ndarray):
-                raise KeyError(
-                    f"Cannot get {side} slice bound for non-unique "
-                    f"label: {repr(original_label)}"
-                )
+        if isinstance(slc, np.ndarray):
+            raise KeyError(
+                f"Cannot get {side} slice bound for non-unique "
+                f"label: {repr(original_label)}"
+            )
 
         if isinstance(slc, slice):
             if side == "left":
