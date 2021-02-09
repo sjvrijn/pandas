@@ -61,7 +61,7 @@ def is_platform_windows() -> bool:
     bool
         True if the running platform is windows.
     """
-    return sys.platform == "win32" or sys.platform == "cygwin"
+    return sys.platform in ["win32", "cygwin"]
 
 
 def is_platform_linux() -> bool:
@@ -97,7 +97,7 @@ def is_platform_32bit() -> bool:
     bool
         True if the running platform is 32-bit.
     """
-    return struct.calcsize("P") * 8 < 64
+    return struct.calcsize("P") < 8
 
 
 def _import_lzma():

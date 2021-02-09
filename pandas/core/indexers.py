@@ -79,12 +79,11 @@ def is_scalar_indexer(indexer, ndim: int) -> bool:
     -------
     bool
     """
-    if isinstance(indexer, tuple):
-        if len(indexer) == ndim:
-            return all(
-                is_integer(x) or (isinstance(x, np.ndarray) and x.ndim == len(x) == 1)
-                for x in indexer
-            )
+    if isinstance(indexer, tuple) and len(indexer) == ndim:
+        return all(
+            is_integer(x) or (isinstance(x, np.ndarray) and x.ndim == len(x) == 1)
+            for x in indexer
+        )
     return False
 
 
@@ -142,25 +141,31 @@ def check_setitem_lengths(indexer, value, values) -> None:
     """
     # boolean with truth values == len of the value is ok too
     if isinstance(indexer, (np.ndarray, list)):
-        if is_list_like(value) and len(indexer) != len(value):
-            if not (
+        if (
+            is_list_like(value)
+            and len(indexer) != len(value)
+            and not (
                 isinstance(indexer, np.ndarray)
                 and indexer.dtype == np.bool_
                 and len(indexer[indexer]) == len(value)
-            ):
-                raise ValueError(
-                    "cannot set using a list-like indexer "
-                    "with a different length than the value"
-                )
+            )
+        ):
+            raise ValueError(
+                "cannot set using a list-like indexer "
+                "with a different length than the value"
+            )
 
     elif isinstance(indexer, slice):
         # slice
-        if is_list_like(value) and len(values):
-            if len(value) != length_of_indexer(indexer, values):
-                raise ValueError(
-                    "cannot set using a slice indexer with a "
-                    "different length than the value"
-                )
+        if (
+            is_list_like(value)
+            and len(values)
+            and len(value) != length_of_indexer(indexer, values)
+        ):
+            raise ValueError(
+                "cannot set using a slice indexer with a "
+                "different length than the value"
+            )
 
 
 def validate_indices(indices: np.ndarray, n: int) -> None:

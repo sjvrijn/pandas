@@ -22,8 +22,7 @@ def get_keywords():
     # get_keywords().
     git_refnames = "$Format:%d$"
     git_full = "$Format:%H$"
-    keywords = {"refnames": git_refnames, "full": git_full}
-    return keywords
+    return {"refnames": git_refnames, "full": git_full}
 
 
 class VersioneerConfig:
@@ -286,13 +285,11 @@ def render_pep440(pieces):
         if pieces["distance"] or pieces["dirty"]:
             rendered += plus_or_dot(pieces)
             rendered += f"{pieces['distance']:d}.g{pieces['short']}"
-            if pieces["dirty"]:
-                rendered += ".dirty"
     else:
         # exception #1
         rendered = f"0+untagged.{pieces['distance']:d}.g{pieces['short']}"
-        if pieces["dirty"]:
-            rendered += ".dirty"
+    if pieces["dirty"]:
+        rendered += ".dirty"
     return rendered
 
 
@@ -348,13 +345,11 @@ def render_pep440_old(pieces):
         rendered = pieces["closest-tag"]
         if pieces["distance"] or pieces["dirty"]:
             rendered += f".post{pieces['distance']:d}"
-            if pieces["dirty"]:
-                rendered += ".dev0"
     else:
         # exception #1
         rendered = f"0.post{pieces['distance']:d}"
-        if pieces["dirty"]:
-            rendered += ".dev0"
+    if pieces["dirty"]:
+        rendered += ".dev0"
     return rendered
 
 

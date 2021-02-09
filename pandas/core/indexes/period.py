@@ -661,8 +661,7 @@ class PeriodIndex(DatetimeIndexOpsMixin, Int64Index):
         i8result = getattr(i8self, opname)(i8other, sort=sort)
 
         parr = type(self._data)(np.asarray(i8result, dtype=np.int64), dtype=self.dtype)
-        result = type(self)._simple_new(parr, name=res_name)
-        return result
+        return type(self)._simple_new(parr, name=res_name)
 
     def intersection(self, other, sort=False):
         self._validate_sort_keyword(sort)

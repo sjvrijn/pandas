@@ -406,17 +406,18 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
             labels = ensure_index(labels)
 
         is_all_dates = labels.is_all_dates
-        if is_all_dates:
-            if not isinstance(labels, (DatetimeIndex, PeriodIndex, TimedeltaIndex)):
-                try:
-                    labels = DatetimeIndex(labels)
-                    # need to set here because we changed the index
-                    if fastpath:
-                        self._mgr.set_axis(axis, labels)
-                except (tslibs.OutOfBoundsDatetime, ValueError):
-                    # labels may exceeds datetime bounds,
-                    # or not be a DatetimeIndex
-                    pass
+        if is_all_dates and not isinstance(
+            labels, (DatetimeIndex, PeriodIndex, TimedeltaIndex)
+        ):
+            try:
+                labels = DatetimeIndex(labels)
+                # need to set here because we changed the index
+                if fastpath:
+                    self._mgr.set_axis(axis, labels)
+            except (tslibs.OutOfBoundsDatetime, ValueError):
+                # labels may exceeds datetime bounds,
+                # or not be a DatetimeIndex
+                pass
 
         object.__setattr__(self, "_index", labels)
         if not fastpath:
@@ -888,9 +889,7 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
         ):
             # Otherwise index.get_value will raise InvalidIndexError
             try:
-                result = self._get_value(key)
-
-                return result
+                return self._get_value(key)
 
             except KeyError:
                 # We still have the corner case where this tuple is a key
@@ -1002,7 +1001,7 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
             self._set_with_engine(key, value)
         except (KeyError, ValueError):
             values = self._values
-            if is_integer(key) and not self.index.inferred_type == "integer":
+            if is_integer(key) and self.index.inferred_type != "integer":
                 # positional setter
                 values[key] = value
             else:
@@ -1056,13 +1055,14 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
 
             # Note: key_type == "boolean" should not occur because that
             #  should be caught by the is_bool_indexer check in __setitem__
-            if key_type == "integer":
-                if not self.index._should_fallback_to_positional():
-                    self.loc[key] = value
-                else:
-                    self.iloc[key] = value
-            else:
+            if (
+                key_type == "integer"
+                and not self.index._should_fallback_to_positional()
+                or key_type != "integer"
+            ):
                 self.loc[key] = value
+            else:
+                self.iloc[key] = value
 
     def _set_value(self, label, value, takeable: bool = False):
         """
@@ -1320,9 +1320,7 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
             max_rows=max_rows,
             length=show_dimensions,
         )
-        result = buf.getvalue()
-
-        return result
+        return buf.getvalue()
 
     def to_string(
         self,
@@ -1865,8 +1863,7 @@ Name: Max Speed, dtype: float64
         ['b', 'a', 'c']
         Categories (3, object): ['a' < 'b' < 'c']
         """
-        result = super().unique()
-        return result
+        return super().unique()
 
     def drop_duplicates(self, keep="first", inplace=False) -> Optional["Series"]:
         """
@@ -2579,9 +2576,7 @@ Name: Max Speed, dtype: float64
             return self._constructor(
                 np.dot(lvals, rvals), index=other.columns
             ).__finalize__(self, method="dot")
-        elif isinstance(other, Series):
-            return np.dot(lvals, rvals)
-        elif isinstance(rvals, np.ndarray):
+        elif isinstance(other, Series) or isinstance(rvals, np.ndarray):
             return np.dot(lvals, rvals)
         else:  # pragma: no cover
             raise TypeError(f"unsupported type: {type(other)}")
@@ -2678,8 +2673,7 @@ Name: Max Speed, dtype: float64
         from pandas.core.reshape.concat import concat
 
         if isinstance(to_append, (list, tuple)):
-            to_concat = [self]
-            to_concat.extend(to_append)
+            to_concat = [self, *to_append]
         else:
             to_concat = [self, to_append]
         if any(isinstance(x, (ABCDataFrame,)) for x in to_concat[1:]):
@@ -2722,8 +2716,7 @@ Name: Max Speed, dtype: float64
             result = func(this_vals, other_vals)
 
         name = ops.get_op_result_name(self, other)
-        ret = this._construct_result(result, name)
-        return ret
+        return this._construct_result(result, name)
 
     def _construct_result(
         self, result: Union[ArrayLike, Tuple[ArrayLike, ArrayLike]], name: Label
@@ -3843,9 +3836,7 @@ Keep all original rows and also all original values
         else:
             index = self.index.repeat(counts)
 
-        result = self._constructor(values, index=index, name=self.name)
-
-        return result
+        return self._constructor(values, index=index, name=self.name)
 
     def unstack(self, level=-1, fill_value=None):
         """

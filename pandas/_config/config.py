@@ -392,7 +392,7 @@ class option_context(ContextDecorator):
     """
 
     def __init__(self, *args):
-        if not (len(args) % 2 == 0 and len(args) >= 2):
+        if len(args) % 2 != 0 or len(args) < 2:
             raise ValueError(
                 "Need to invoke as option_context(pat, val, [(pat, val), ...])."
             )
@@ -802,15 +802,13 @@ def is_one_of_factory(legal_values) -> Callable[[Any], None]:
     legal_values = [c for c in legal_values if not callable(c)]
 
     def inner(x) -> None:
-        if x not in legal_values:
-
-            if not any(c(x) for c in callables):
-                uvals = [str(lval) for lval in legal_values]
-                pp_values = "|".join(uvals)
-                msg = f"Value must be one of {pp_values}"
-                if len(callables):
-                    msg += " or a callable"
-                raise ValueError(msg)
+        if x not in legal_values and not any(c(x) for c in callables):
+            uvals = [str(lval) for lval in legal_values]
+            pp_values = "|".join(uvals)
+            msg = f"Value must be one of {pp_values}"
+            if len(callables):
+                msg += " or a callable"
+            raise ValueError(msg)
 
     return inner
 

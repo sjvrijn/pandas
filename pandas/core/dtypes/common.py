@@ -1688,7 +1688,7 @@ def infer_dtype_from_object(dtype):
         elif dtype in ["period"]:
             raise NotImplementedError
 
-        if dtype == "datetime" or dtype == "timedelta":
+        if dtype in ["datetime", "timedelta"]:
             dtype += "64"
         try:
             return infer_dtype_from_object(getattr(np, dtype))

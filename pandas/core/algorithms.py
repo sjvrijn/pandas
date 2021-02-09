@@ -135,12 +135,10 @@ def _ensure_data(
             from pandas import PeriodIndex
 
             values = PeriodIndex(values)
-            dtype = values.dtype
         elif is_timedelta64_dtype(vals_dtype) or is_timedelta64_dtype(dtype):
             from pandas import TimedeltaIndex
 
             values = TimedeltaIndex(values)
-            dtype = values.dtype
         else:
             # Datetime
             if values.ndim > 1 and is_datetime64_ns_dtype(vals_dtype):
@@ -154,8 +152,7 @@ def _ensure_data(
             from pandas import DatetimeIndex
 
             values = DatetimeIndex(values)
-            dtype = values.dtype
-
+        dtype = values.dtype
         return values.asi8, dtype
 
     elif is_categorical_dtype(vals_dtype) and (
@@ -788,10 +785,9 @@ def _value_counts_arraylike(values, dropna: bool):
         keys, counts = f(values, dropna)
 
         mask = isna(values)
-        if not dropna and mask.any():
-            if not isna(keys).any():
-                keys = np.insert(keys, 0, np.NaN)
-                counts = np.insert(counts, 0, mask.sum())
+        if not dropna and mask.any() and not isna(keys).any():
+            keys = np.insert(keys, 0, np.NaN)
+            counts = np.insert(counts, 0, mask.sum())
 
     keys = _reconstruct_data(keys, original.dtype, original)
 
@@ -1652,9 +1648,8 @@ def take_nd(
                     dtype, fill_value = arr.dtype, arr.dtype.type()
 
     flip_order = False
-    if arr.ndim == 2:
-        if arr.flags.f_contiguous:
-            flip_order = True
+    if arr.ndim == 2 and arr.flags.f_contiguous:
+        flip_order = True
 
     if flip_order:
         arr = arr.T
@@ -1815,10 +1810,7 @@ def searchsorted(arr, value, side="left", sorter=None):
         else:
             dtype = value_arr.dtype
 
-        if is_scalar(value):
-            value = dtype.type(value)
-        else:
-            value = array(value, dtype=dtype)
+        value = dtype.type(value) if is_scalar(value) else array(value, dtype=dtype)
     elif not (
         is_object_dtype(arr) or is_numeric_dtype(arr) or is_categorical_dtype(arr)
     ):
@@ -1829,8 +1821,7 @@ def searchsorted(arr, value, side="left", sorter=None):
         if isinstance(value, Timestamp) and value.tzinfo is None:
             value = value.to_datetime64()
 
-    result = arr.searchsorted(value, side=side, sorter=sorter)
-    return result
+    return arr.searchsorted(value, side=side, sorter=sorter)
 
 
 # ---- #
@@ -1865,11 +1856,7 @@ def diff(arr, n: int, axis: int = 0, stacklevel=3):
     na = np.nan
     dtype = arr.dtype
 
-    if dtype.kind == "b":
-        op = operator.xor
-    else:
-        op = operator.sub
-
+    op = operator.xor if dtype.kind == "b" else operator.sub
     if isinstance(dtype, PandasDtype):
         # PandasArray cannot necessarily hold shifted versions of itself.
         arr = np.asarray(arr)

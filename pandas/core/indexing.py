@@ -782,8 +782,7 @@ class _LocationIndexer(_NDFrameIndexerBase):
         # instead of checking it as multiindex representation (GH 13797)
         if isinstance(ax0, ABCMultiIndex) and self.name != "iloc":
             try:
-                result = self._handle_lowerdim_multi_index_axis0(tup)
-                return result
+                return self._handle_lowerdim_multi_index_axis0(tup)
             except IndexingError:
                 pass
 
@@ -834,8 +833,7 @@ class _LocationIndexer(_NDFrameIndexerBase):
                 # This should never be reached, but lets be explicit about it
                 raise ValueError("Too many indices")
             try:
-                result = self._handle_lowerdim_multi_index_axis0(tup)
-                return result
+                return self._handle_lowerdim_multi_index_axis0(tup)
             except IndexingError:
                 pass
 
@@ -989,10 +987,7 @@ class _LocIndexer(_LocationIndexer):
             return False
 
         # just too complicated
-        if any(com.is_bool_indexer(x) for x in tup):
-            return False
-
-        return True
+        return not any(com.is_bool_indexer(x) for x in tup)
 
     def _multi_take(self, tup: Tuple):
         """
@@ -1421,11 +1416,7 @@ class _iLocIndexer(_LocationIndexer):
         if len(key) != self.ndim:
             return False
 
-        for k in key:
-            if not is_integer(k):
-                return False
-
-        return True
+        return all(is_integer(k) for k in key)
 
     def _validate_integer(self, key: int, axis: int) -> None:
         """
@@ -2240,10 +2231,10 @@ def maybe_convert_ix(*args):
     """
     We likely want to take the cross-product.
     """
-    ixify = True
-    for arg in args:
-        if not isinstance(arg, (np.ndarray, list, ABCSeries, Index)):
-            ixify = False
+    ixify = all(
+        isinstance(arg, (np.ndarray, list, ABCSeries, Index)) for arg in args
+    )
+
 
     if ixify:
         return np.ix_(*args)

@@ -1323,11 +1323,7 @@ def interval_range(
             breaks = maybe_downcast_to_dtype(breaks, "int64")
     else:
         # delegate to the appropriate range function
-        if isinstance(endpoint, Timestamp):
-            range_func = date_range
-        else:
-            range_func = timedelta_range
-
+        range_func = date_range if isinstance(endpoint, Timestamp) else timedelta_range
         breaks = range_func(start=start, end=end, periods=periods, freq=freq)
 
     return IntervalIndex.from_breaks(breaks, name=name, closed=closed)

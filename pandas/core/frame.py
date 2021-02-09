@@ -702,7 +702,7 @@ class DataFrame(NDFrame):
         # and to_string on entire frame may be expensive
         d = self
 
-        if not (max_rows is None):  # unlimited rows
+        if max_rows is not None:  # unlimited rows
             # min of two, where one may be None
             d = d.iloc[: min(max_rows, len(d))]
         else:
@@ -1368,11 +1368,9 @@ class DataFrame(NDFrame):
                [2, 4.5, Timestamp('2000-01-02 00:00:00')]], dtype=object)
         """
         self._consolidate_inplace()
-        result = self._mgr.as_array(
+        return self._mgr.as_array(
             transpose=self._AXIS_REVERSED, dtype=dtype, copy=copy, na_value=na_value
         )
-
-        return result
 
     def to_dict(self, orient="dict", into=dict):
         """
@@ -1761,11 +1759,7 @@ class DataFrame(NDFrame):
             else:
                 values.extend(itertools.islice(data, nrows - 1))
 
-            if dtype is not None:
-                data = np.array(values, dtype=dtype)
-            else:
-                data = values
-
+            data = np.array(values, dtype=dtype) if dtype is not None else values
         if isinstance(data, dict):
             if columns is None:
                 columns = arr_columns = ensure_index(sorted(data))
@@ -1789,16 +1783,8 @@ class DataFrame(NDFrame):
             arrays, arr_columns = to_arrays(data, columns, coerce_float=coerce_float)
 
             arr_columns = ensure_index(arr_columns)
-            if columns is not None:
-                columns = ensure_index(columns)
-            else:
-                columns = arr_columns
-
-        if exclude is None:
-            exclude = set()
-        else:
-            exclude = set(exclude)
-
+            columns = ensure_index(columns) if columns is not None else arr_columns
+        exclude = set() if exclude is None else set(exclude)
         result_index = None
         if index is not None:
             if isinstance(index, str) or not hasattr(index, "__iter__"):
@@ -1928,10 +1914,10 @@ class DataFrame(NDFrame):
                 np.asarray(self.iloc[:, i]) for i in range(len(self.columns))
             ]
 
-            count = 0
             index_names = list(self.index.names)
 
             if isinstance(self.index, MultiIndex):
+                count = 0
                 for i, n in enumerate(index_names):
                     if n is None:
                         index_names[i] = f"level_{count}"
@@ -3132,7 +3118,7 @@ class DataFrame(NDFrame):
         takeable : interpret the index/col as indexers, default False
         """
         try:
-            if takeable is True:
+            if takeable:
                 series = self._ixs(col, axis=1)
                 series._set_value(index, value, takeable=True)
                 return
@@ -3143,8 +3129,8 @@ class DataFrame(NDFrame):
             validate_numeric_casting(series.dtype, value)
 
             series._values[loc] = value
-            # Note: trying to use series._set_value breaks tests in
-            #  tests.frame.indexing.test_indexing and tests.indexing.test_partial
+                # Note: trying to use series._set_value breaks tests in
+                #  tests.frame.indexing.test_indexing and tests.indexing.test_partial
         except (KeyError, TypeError):
             # set using a non-recursive method & reset the cache
             if takeable:
@@ -3575,12 +3561,11 @@ class DataFrame(NDFrame):
         def extract_unique_dtypes_from_dtypes_set(
             dtypes_set: FrozenSet[Dtype], unique_dtypes: np.ndarray
         ) -> List[Dtype]:
-            extracted_dtypes = [
+            return [
                 unique_dtype
                 for unique_dtype in unique_dtypes
                 if issubclass(unique_dtype.type, tuple(dtypes_set))  # type: ignore
             ]
-            return extracted_dtypes
 
         unique_dtypes = self.dtypes.unique()
 
@@ -4545,11 +4530,7 @@ class DataFrame(NDFrame):
         if missing:
             raise KeyError(f"None of {missing} are in the columns")
 
-        if inplace:
-            frame = self
-        else:
-            frame = self.copy()
-
+        frame = self if inplace else self.copy()
         arrays = []
         names = []
         if append:
@@ -4766,9 +4747,11 @@ class DataFrame(NDFrame):
 
         def _maybe_casted_values(index, labels=None):
             values = index._values
-            if not isinstance(index, (PeriodIndex, DatetimeIndex)):
-                if values.dtype == np.object_:
-                    values = lib.maybe_convert_objects(values)
+            if (
+                not isinstance(index, (PeriodIndex, DatetimeIndex))
+                and values.dtype == np.object_
+            ):
+                values = lib.maybe_convert_objects(values)
 
             # if we have the labels, extract the values with a mask
             if labels is not None:
@@ -6213,10 +6196,7 @@ Keep all original rows and columns and also all original values
                 arr = arr._values
 
             if needs_i8_conversion(arr.dtype):
-                if is_extension_array_dtype(arr.dtype):
-                    arr = arr.asi8
-                else:
-                    arr = arr.view("i8")
+                arr = arr.asi8 if is_extension_array_dtype(arr.dtype) else arr.view("i8")
             return arr
 
         def combiner(x, y):
@@ -6377,11 +6357,7 @@ Keep all original rows and columns and also all original values
                     if any(mask_this & mask_that):
                         raise ValueError("Data overlaps.")
 
-                if overwrite:
-                    mask = isna(that)
-                else:
-                    mask = notna(this)
-
+                mask = isna(that) if overwrite else notna(this)
             # don't overwrite columns unnecessarily
             if mask.all():
                 continue
@@ -8452,11 +8428,7 @@ NaN 12.3   33.0
         if level is not None:
             return self._count_level(level, axis=axis, numeric_only=numeric_only)
 
-        if numeric_only:
-            frame = self._get_numeric_data()
-        else:
-            frame = self
-
+        frame = self._get_numeric_data() if numeric_only else self
         # GH #423
         if len(frame._get_axis(axis)) == 0:
             result = self._constructor_sliced(0, index=frame._get_agg_axis(axis))
@@ -8476,11 +8448,7 @@ NaN 12.3   33.0
         return result.astype("int64")
 
     def _count_level(self, level, axis=0, numeric_only=False):
-        if numeric_only:
-            frame = self._get_numeric_data()
-        else:
-            frame = self
-
+        frame = self._get_numeric_data() if numeric_only else self
         count_axis = frame._get_axis(axis)
         agg_axis = frame._get_agg_axis(axis)
 

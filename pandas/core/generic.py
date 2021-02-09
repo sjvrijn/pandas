@@ -203,10 +203,7 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
         object.__setattr__(self, "_is_copy", None)
         object.__setattr__(self, "_mgr", data)
         object.__setattr__(self, "_item_cache", {})
-        if attrs is None:
-            attrs = {}
-        else:
-            attrs = dict(attrs)
+        attrs = {} if attrs is None else dict(attrs)
         object.__setattr__(self, "_attrs", attrs)
 
     @classmethod
@@ -391,7 +388,7 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
     def _get_axis_resolvers(self, axis: str) -> Dict[str, ABCSeries]:
         # index or columns
         axis_index = getattr(self, axis)
-        d = dict()
+        d = {}
         prefix = axis[0]
 
         for i, name in enumerate(axis_index.names):
@@ -654,8 +651,7 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
         """
         labels = self._get_axis(axis)
         new_labels = labels.droplevel(level)
-        result = self.set_axis(new_labels, axis=axis, inplace=False)
-        return result
+        return self.set_axis(new_labels, axis=axis, inplace=False)
 
     def pop(self, item: Label) -> Union["Series", Any]:
         result = self[item]
@@ -1319,8 +1315,7 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
             return self
 
         new_data = self._mgr.apply(operator.invert)
-        result = self._constructor(new_data).__finalize__(self, method="__invert__")
-        return result
+        return self._constructor(new_data).__finalize__(self, method="__invert__")
 
     def __nonzero__(self):
         raise ValueError(
@@ -1869,10 +1864,9 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
         """
         if config.get_option("display.html.table_schema"):
             data = self.head(config.get_option("display.max_rows"))
-            payload = json.loads(
+            return json.loads(
                 data.to_json(orient="table"), object_pairs_hook=collections.OrderedDict
             )
-            return payload
 
     # ----------------------------------------------------------------------
     # I/O Methods
@@ -2282,11 +2276,8 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
         """
         from pandas.io import json
 
-        if date_format is None and orient == "table":
-            date_format = "iso"
-        elif date_format is None:
-            date_format = "epoch"
-
+        if date_format is None:
+            date_format = "iso" if orient == "table" else "epoch"
         config.is_nonnegative_int(indent)
         indent = indent or 0
 
@@ -4968,11 +4959,11 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
                 "Replace has to be set to `True` when "
                 "upsampling the population `frac` > 1."
             )
-        elif n is not None and frac is None and n % 1 != 0:
+        elif frac is None and n % 1 != 0:
             raise ValueError("Only integers accepted as `n` values")
-        elif n is None and frac is not None:
+        elif n is None:
             n = int(round(frac * axis_length))
-        elif n is not None and frac is not None:
+        elif frac is not None:
             raise ValueError("Please enter a value for `frac` OR `n`, not both")
 
         # Check for negative sizes
@@ -5119,15 +5110,13 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
         # Note: obj.x will always call obj.__getattribute__('x') prior to
         # calling obj.__getattr__('x').
         if (
-            name in self._internal_names_set
-            or name in self._metadata
-            or name in self._accessors
+            name not in self._internal_names_set
+            and name not in self._metadata
+            and name not in self._accessors
+            and self._info_axis._can_hold_identifiers_and_holds_name(name)
         ):
-            return object.__getattribute__(self, name)
-        else:
-            if self._info_axis._can_hold_identifiers_and_holds_name(name):
-                return self[name]
-            return object.__getattribute__(self, name)
+            return self[name]
+        return object.__getattribute__(self, name)
 
     def __setattr__(self, name: str, value) -> None:
         """
@@ -5146,19 +5135,15 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
 
         # if this fails, go on to more involved attribute setting
         # (note that this matches __getattr__, above).
-        if name in self._internal_names_set:
-            object.__setattr__(self, name, value)
-        elif name in self._metadata:
+        if name in self._internal_names_set or name in self._metadata:
             object.__setattr__(self, name, value)
         else:
             try:
                 existing = getattr(self, name)
-                if isinstance(existing, Index):
+                if isinstance(existing, Index) or name not in self._info_axis:
                     object.__setattr__(self, name, value)
-                elif name in self._info_axis:
-                    self[name] = value
                 else:
-                    object.__setattr__(self, name, value)
+                    self[name] = value
             except (AttributeError, TypeError):
                 if isinstance(self, ABCDataFrame) and (is_list_like(value)):
                     warnings.warn(
@@ -5233,17 +5218,16 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
 
     def _check_inplace_setting(self, value) -> bool_t:
         """ check whether we allow in-place setting with this type of value """
-        if self._is_mixed_type:
-            if not self._mgr.is_numeric_mixed_type:
+        if self._is_mixed_type and not self._mgr.is_numeric_mixed_type:
 
-                # allow an actual np.nan thru
-                if is_float(value) and np.isnan(value):
-                    return True
+            # allow an actual np.nan thru
+            if is_float(value) and np.isnan(value):
+                return True
 
-                raise TypeError(
-                    "Cannot do inplace boolean setting on "
-                    "mixed-types with a non np.nan value"
-                )
+            raise TypeError(
+                "Cannot do inplace boolean setting on "
+                "mixed-types with a non np.nan value"
+            )
 
         return True
 
@@ -5887,8 +5871,7 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
                 )
                 for col_name, col in self.items()
             ]
-            result = pd.concat(results, axis=1, copy=False)
-            return result
+            return pd.concat(results, axis=1, copy=False)
 
     # ----------------------------------------------------------------------
     # Filling NA's
@@ -6036,9 +6019,7 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
                     )
                     value = value.reindex(self.index, copy=False)
                     value = value._values
-                elif not is_list_like(value):
-                    pass
-                else:
+                elif is_list_like(value):
                     raise TypeError(
                         '"value" parameter must be a scalar, dict '
                         "or Series, but you passed a "
@@ -7329,9 +7310,13 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
             upper = None
 
         # GH 2747 (arguments were reversed)
-        if lower is not None and upper is not None:
-            if is_scalar(lower) and is_scalar(upper):
-                lower, upper = min(lower, upper), max(lower, upper)
+        if (
+            lower is not None
+            and upper is not None
+            and is_scalar(lower)
+            and is_scalar(upper)
+        ):
+            lower, upper = min(lower, upper), max(lower, upper)
 
         # fast-path for scalars
         if (lower is None or (is_scalar(lower) and is_number(lower))) and (
@@ -8139,10 +8124,9 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
         end_date = end = self.index[0] + offset
 
         # Tick-like, e.g. 3 weeks
-        if isinstance(offset, Tick):
-            if end_date in self.index:
-                end = self.index.searchsorted(end_date, side="left")
-                return self.iloc[:end]
+        if isinstance(offset, Tick) and end_date in self.index:
+            end = self.index.searchsorted(end_date, side="left")
+            return self.iloc[:end]
 
         return self.loc[:end]
 
@@ -8577,17 +8561,19 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
 
         is_series = isinstance(self, ABCSeries)
 
-        if axis is None or axis == 0:
-            if not self.index.equals(other.index):
-                join_index, ilidx, iridx = self.index.join(
-                    other.index, how=join, level=level, return_indexers=True
-                )
+        if (axis is None or axis == 0) and not self.index.equals(other.index):
+            join_index, ilidx, iridx = self.index.join(
+                other.index, how=join, level=level, return_indexers=True
+            )
 
-        if axis is None or axis == 1:
-            if not is_series and not self.columns.equals(other.columns):
-                join_columns, clidx, cridx = self.columns.join(
-                    other.columns, how=join, level=level, return_indexers=True
-                )
+        if (
+            (axis is None or axis == 1)
+            and not is_series
+            and not self.columns.equals(other.columns)
+        ):
+            join_columns, clidx, cridx = self.columns.join(
+                other.columns, how=join, level=level, return_indexers=True
+            )
 
         if is_series:
             reindexers = {0: [join_index, ilidx]}
@@ -8612,11 +8598,13 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
             right = right.fillna(method=method, axis=fill_axis, limit=limit)
 
         # if DatetimeIndex have different tz, convert to UTC
-        if is_datetime64tz_dtype(left.index.dtype):
-            if left.index.tz != right.index.tz:
-                if join_index is not None:
-                    left.index = join_index
-                    right.index = join_index
+        if (
+            is_datetime64tz_dtype(left.index.dtype)
+            and left.index.tz != right.index.tz
+            and join_index is not None
+        ):
+            left.index = join_index
+            right.index = join_index
 
         return (
             left.__finalize__(self),
@@ -8660,7 +8648,7 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
             if axis == 0:
                 join_index = self.index
                 lidx, ridx = None, None
-                if not self.index.equals(other.index):
+                if not join_index.equals(other.index):
                     join_index, lidx, ridx = self.index.join(
                         other.index, how=join, level=level, return_indexers=True
                     )
@@ -8671,7 +8659,7 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
             elif axis == 1:
                 join_index = self.columns
                 lidx, ridx = None, None
-                if not self.columns.equals(other.index):
+                if not join_index.equals(other.index):
                     join_index, lidx, ridx = self.columns.join(
                         other.index, how=join, level=level, return_indexers=True
                     )
@@ -8681,16 +8669,12 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
             else:
                 raise ValueError("Must specify axis=0 or 1")
 
-            if copy and fdata is self._mgr:
+            if copy and fdata is fdata:
                 fdata = fdata.copy()
 
             left = self._constructor(fdata)
 
-            if ridx is None:
-                right = other
-            else:
-                right = other.reindex(join_index, level=level)
-
+            right = other if ridx is None else other.reindex(join_index, level=level)
         # fill
         fill_na = notna(fill_value) or (method is not None)
         if fill_na:
@@ -8698,12 +8682,14 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
             right = right.fillna(fill_value, method=method, limit=limit)
 
         # if DatetimeIndex have different tz, convert to UTC
-        if is_series or (not is_series and axis == 0):
-            if is_datetime64tz_dtype(left.index.dtype):
-                if left.index.tz != right.index.tz:
-                    if join_index is not None:
-                        left.index = join_index
-                        right.index = join_index
+        if (
+            (is_series or axis == 0)
+            and is_datetime64tz_dtype(left.index.dtype)
+            and left.index.tz != right.index.tz
+            and join_index is not None
+        ):
+            left.index = join_index
+            right.index = join_index
 
         return (
             left.__finalize__(self),
@@ -9393,9 +9379,8 @@ class NDFrame(PandasObject, SelectionMixin, indexing.IndexingMixin):
             before = to_datetime(before)
             after = to_datetime(after)
 
-        if before is not None and after is not None:
-            if before > after:
-                raise ValueError(f"Truncate: {after} must be after {before}")
+        if before is not None and after is not None and before > after:
+            raise ValueError(f"Truncate: {after} must be after {before}")
 
         if ax.is_monotonic_decreasing:
             before, after = after, before

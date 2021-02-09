@@ -35,7 +35,7 @@ import pandas.core.common as com
 from pandas.core.indexes.base import Index, maybe_extract_name
 from pandas.core.ops import get_op_result_name
 
-_num_index_shared_docs = dict()
+_num_index_shared_docs = {}
 
 
 class NumericIndex(Index):
@@ -264,9 +264,10 @@ class Int64Index(IntegerIndex):
         """
         Ensure incoming data can be represented as ints.
         """
-        if not issubclass(data.dtype.type, np.signedinteger):
-            if not np.array_equal(data, subarr):
-                raise TypeError("Unsafe NumPy casting, you must explicitly cast")
+        if not issubclass(
+            data.dtype.type, np.signedinteger
+        ) and not np.array_equal(data, subarr):
+            raise TypeError("Unsafe NumPy casting, you must explicitly cast")
 
     def _is_compatible_with_other(self, other) -> bool:
         return super()._is_compatible_with_other(other) or all(
@@ -321,9 +322,10 @@ class UInt64Index(IntegerIndex):
         """
         Ensure incoming data can be represented as uints.
         """
-        if not issubclass(data.dtype.type, np.unsignedinteger):
-            if not np.array_equal(data, subarr):
-                raise TypeError("Unsafe NumPy casting, you must explicitly cast")
+        if not issubclass(
+            data.dtype.type, np.unsignedinteger
+        ) and not np.array_equal(data, subarr):
+            raise TypeError("Unsafe NumPy casting, you must explicitly cast")
 
     def _is_compatible_with_other(self, other) -> bool:
         return super()._is_compatible_with_other(other) or all(

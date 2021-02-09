@@ -306,7 +306,4 @@ def all_indexes_same(indexes):
         True if all indexes contain the same elements, False otherwise.
     """
     first = indexes[0]
-    for index in indexes[1:]:
-        if not first.equals(index):
-            return False
-    return True
+    return all(first.equals(index) for index in indexes[1:])

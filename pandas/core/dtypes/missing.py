@@ -220,11 +220,7 @@ def _isna_ndarraylike(obj, inf_as_na: bool = False):
         # this is the NaT pattern
         result = values.view("i8") == iNaT
     else:
-        if inf_as_na:
-            result = ~np.isfinite(values)
-        else:
-            result = np.isnan(values)
-
+        result = ~np.isfinite(values) if inf_as_na else np.isnan(values)
     # box
     if isinstance(obj, ABCSeries):
         result = obj._constructor(result, index=obj.index, name=obj.name, copy=False)
@@ -349,8 +345,8 @@ def _isna_compat(arr, fill_value=np.nan) -> bool:
     -------
     True if we can fill using this fill_value
     """
-    dtype = arr.dtype
     if isna(fill_value):
+        dtype = arr.dtype
         return not (is_bool_dtype(dtype) or is_integer_dtype(dtype))
     return True
 
@@ -438,9 +434,10 @@ def array_equivalent(
         right = right.view("i8")
 
     # if we have structured dtypes, compare first
-    if left.dtype.type is np.void or right.dtype.type is np.void:
-        if left.dtype != right.dtype:
-            return False
+    if (
+        left.dtype.type is np.void or right.dtype.type is np.void
+    ) and left.dtype != right.dtype:
+        return False
 
     return np.array_equal(left, right)
 

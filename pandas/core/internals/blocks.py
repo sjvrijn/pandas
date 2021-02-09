@@ -506,8 +506,7 @@ class Block(PandasObject):
         # operate column-by-column
         # this is expensive as it splits the blocks items-by-item
         def f(mask, val, idx):
-            val = maybe_downcast_to_dtype(val, dtype="infer")
-            return val
+            return maybe_downcast_to_dtype(val, dtype="infer")
 
         return self.split_and_operate(None, f, False)
 
@@ -800,9 +799,8 @@ class Block(PandasObject):
             raise ValueError(f"Cannot set values with ndim > {self.ndim}")
 
         # coerce None values, if appropriate
-        if value is None:
-            if self.is_numeric:
-                value = np.nan
+        if value is None and self.is_numeric:
+            value = np.nan
 
         # coerce if block dtype can store value
         values = self.values
@@ -887,8 +885,7 @@ class Block(PandasObject):
 
         if transpose:
             values = values.T
-        block = self.make_block(values)
-        return block
+        return self.make_block(values)
 
     def putmask(
         self, mask, new, inplace: bool = False, axis: int = 0, transpose: bool = False,
@@ -1001,8 +998,7 @@ class Block(PandasObject):
                     # we need to explicitly astype here to make a copy
                     n = n.astype(dtype)
 
-                nv = _putmask_smart(val, mask, n)
-                return nv
+                return _putmask_smart(val, mask, n)
 
             new_blocks = self.split_and_operate(mask, f, inplace)
             return new_blocks
@@ -1150,12 +1146,11 @@ class Block(PandasObject):
 
         # if we are coercing, then don't force the conversion
         # if the block can't hold the type
-        if coerce:
-            if not self._can_hold_na:
-                if inplace:
-                    return [self]
-                else:
-                    return [self.copy()]
+        if coerce and not self._can_hold_na:
+            if inplace:
+                return [self]
+            else:
+                return [self.copy()]
 
         values = self.values if inplace else self.values.copy()
 
@@ -1253,7 +1248,7 @@ class Block(PandasObject):
 
         # Called from three places in managers, all of which satisfy
         #  this assertion
-        assert not (axis == 0 and new_mgr_locs is None)
+        assert axis != 0 or new_mgr_locs is not None
         if new_mgr_locs is None:
             new_mgr_locs = self.mgr_locs
 
@@ -1721,7 +1716,7 @@ class ExtensionBlock(Block):
 
         # Called from three places in managers, all of which satisfy
         #  this assertion
-        assert not (self.ndim == 1 and new_mgr_locs is None)
+        assert self.ndim != 1 or new_mgr_locs is not None
         if new_mgr_locs is None:
             new_mgr_locs = self.mgr_locs
 
@@ -1943,11 +1938,7 @@ class FloatBlock(FloatOrComplexBlock):
         if float_format is None and decimal == ".":
             mask = isna(values)
 
-            if not quoting:
-                values = values.astype(str)
-            else:
-                values = np.array(values, dtype="object")
-
+            values = np.array(values, dtype="object") if quoting else values.astype(str)
             values[mask] = na_rep
             return values
 
@@ -2314,9 +2305,7 @@ class TimeDeltaBlock(DatetimeLikeBlockMixin, IntBlock):
         tipo = maybe_infer_dtype_type(element)
         if tipo is not None:
             return issubclass(tipo.type, np.timedelta64)
-        elif element is NaT:
-            return True
-        elif isinstance(element, (timedelta, np.timedelta64)):
+        elif element is NaT or isinstance(element, (timedelta, np.timedelta64)):
             return True
         return is_valid_nat_for_dtype(element, self.dtype)
 
@@ -2738,13 +2727,12 @@ def _extend_blocks(result, blocks=None):
 
 def _block_shape(values: ArrayLike, ndim: int = 1) -> ArrayLike:
     """ guarantee the shape of the values to be at least 1 d """
-    if values.ndim < ndim:
+    if values.ndim < ndim and not is_extension_array_dtype(values.dtype):
         shape = values.shape
-        if not is_extension_array_dtype(values.dtype):
-            # TODO(EA2D): https://github.com/pandas-dev/pandas/issues/23023
-            # block.shape is incorrect for "2D" ExtensionArrays
-            # We can't, and don't need to, reshape.
-            values = values.reshape(tuple((1,) + shape))  # type: ignore
+        # TODO(EA2D): https://github.com/pandas-dev/pandas/issues/23023
+        # block.shape is incorrect for "2D" ExtensionArrays
+        # We can't, and don't need to, reshape.
+        values = values.reshape(tuple((1,) + shape))  # type: ignore
     return values
 
 

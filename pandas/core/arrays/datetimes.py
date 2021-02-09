@@ -566,8 +566,7 @@ class DatetimeArray(dtl.DatetimeLikeArrayMixin, dtl.TimelikeOps, dtl.DatelikeOps
             converted = ints_to_pydatetime(
                 data[start_i:end_i], tz=self.tz, freq=self.freq, box="timestamp"
             )
-            for v in converted:
-                yield v
+            yield from converted
 
     def astype(self, dtype, copy=True):
         # We handle
@@ -679,10 +678,7 @@ class DatetimeArray(dtl.DatetimeLikeArrayMixin, dtl.TimelikeOps, dtl.DatelikeOps
 
         assert not isinstance(offset, Tick)
         try:
-            if self.tz is not None:
-                values = self.tz_localize(None)
-            else:
-                values = self
+            values = self.tz_localize(None) if self.tz is not None else self
             result = offset._apply_array(values)
             result = DatetimeArray._simple_new(result)
             result = result.tz_localize(self.tz)

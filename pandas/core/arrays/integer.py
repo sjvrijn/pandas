@@ -543,11 +543,7 @@ class IntegerArray(BaseMaskedArray):
                         result = invalid_comparison(self._data, other, op)
 
             # nans propagate
-            if mask is None:
-                mask = self._mask.copy()
-            else:
-                mask = self._mask | mask
-
+            mask = self._mask.copy() if mask is None else self._mask | mask
             return BooleanArray(result, mask)
 
         name = f"__{op.__name__}__"
@@ -555,10 +551,9 @@ class IntegerArray(BaseMaskedArray):
 
     def sum(self, skipna=True, min_count=0, **kwargs):
         nv.validate_sum((), kwargs)
-        result = masked_reductions.sum(
+        return masked_reductions.sum(
             values=self._data, mask=self._mask, skipna=skipna, min_count=min_count
         )
-        return result
 
     def _maybe_mask_result(self, result, mask, other, op_name: str):
         """

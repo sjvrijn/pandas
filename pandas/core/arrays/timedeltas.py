@@ -304,10 +304,9 @@ class TimedeltaArray(dtl.DatetimeLikeArrayMixin, dtl.TimelikeOps):
             if self._hasnans:
                 # avoid double-copying
                 result = self._data.astype(dtype, copy=False)
-                values = self._maybe_mask_results(
+                return self._maybe_mask_results(
                     result, fill_value=None, convert="float64"
                 )
-                return values
             result = self._data.astype(dtype, copy=copy)
             return result.astype("i8")
         elif is_timedelta64_ns_dtype(dtype):

@@ -71,11 +71,10 @@ def _cat_compare_op(op):
             # TODO: Could this fail if the categories are listlike objects?
             raise ValueError("Lengths must match.")
 
-        if not self.ordered:
-            if opname in ["__lt__", "__gt__", "__le__", "__ge__"]:
-                raise TypeError(
-                    "Unordered Categoricals can only compare equality or not"
-                )
+        if not self.ordered and opname in ["__lt__", "__gt__", "__le__", "__ge__"]:
+            raise TypeError(
+                "Unordered Categoricals can only compare equality or not"
+            )
         if isinstance(other, Categorical):
             # Two Categoricals can only be be compared if the categories are
             # the same (maybe up to ordering, depending on ordered)
@@ -85,10 +84,10 @@ def _cat_compare_op(op):
                 raise TypeError(msg + " Categories are different lengths")
             elif self.ordered and not (self.categories == other.categories).all():
                 raise TypeError(msg)
-            elif not set(self.categories) == set(other.categories):
+            elif set(self.categories) != set(other.categories):
                 raise TypeError(msg)
 
-            if not (self.ordered == other.ordered):
+            if self.ordered != other.ordered:
                 raise TypeError(
                     "Categoricals can only be compared if 'ordered' is the same"
                 )
@@ -1343,8 +1342,7 @@ class Categorical(NDArrayBackedExtensionArray, PandasObject):
         Categorical.notna : Boolean inverse of Categorical.isna.
 
         """
-        ret = self._codes == -1
-        return ret
+        return self._codes == -1
 
     isnull = isna
 
@@ -1380,9 +1378,7 @@ class Categorical(NDArrayBackedExtensionArray, PandasObject):
         -------
         valid : Categorical
         """
-        result = self[self.notna()]
-
-        return result
+        return self[self.notna()]
 
     def value_counts(self, dropna=True):
         """
@@ -1406,7 +1402,7 @@ class Categorical(NDArrayBackedExtensionArray, PandasObject):
         from pandas import CategoricalIndex, Series
 
         code, cat = self._codes, self.categories
-        ncat, mask = len(cat), 0 <= code
+        ncat, mask = (len(cat), code >= 0)
         ix, clean = np.arange(ncat), mask.all()
 
         if dropna or clean:
@@ -2072,8 +2068,7 @@ class Categorical(NDArrayBackedExtensionArray, PandasObject):
         )
         counts = counts.cumsum()
         _result = (r[start:end] for start, end in zip(counts, counts[1:]))
-        result = dict(zip(categories, _result))
-        return result
+        return dict(zip(categories, _result))
 
     # reduction ops #
     def _reduce(self, name: str, skipna: bool = True, **kwargs):
@@ -2658,8 +2653,7 @@ def recode_for_categories(codes: np.ndarray, old_categories, new_categories):
     indexer = coerce_indexer_dtype(
         new_categories.get_indexer(old_categories), new_categories
     )
-    new_codes = take_1d(indexer, codes.copy(), fill_value=-1)
-    return new_codes
+    return take_1d(indexer, codes.copy(), fill_value=-1)
 
 
 def factorize_from_iterable(values):

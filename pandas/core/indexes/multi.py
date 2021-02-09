@@ -283,11 +283,7 @@ class MultiIndex(Index):
             # handles name validation
             result._set_names(names)
 
-        if sortorder is not None:
-            result.sortorder = int(sortorder)
-        else:
-            result.sortorder = sortorder
-
+        result.sortorder = int(sortorder) if sortorder is not None else sortorder
         if verify_integrity:
             new_codes = result._verify_integrity()
             result._codes = new_codes
@@ -368,19 +364,17 @@ class MultiIndex(Index):
                 raise ValueError(
                     f"Level values must be unique: {list(level)} on level {i}"
                 )
-        if self.sortorder is not None:
-            if self.sortorder > self._lexsort_depth():
-                raise ValueError(
-                    "Value for sortorder must be inferior or equal to actual "
-                    f"lexsort_depth: sortorder {self.sortorder} "
-                    f"with lexsort_depth {self._lexsort_depth()}"
-                )
+        if self.sortorder is not None and self.sortorder > self._lexsort_depth():
+            raise ValueError(
+                "Value for sortorder must be inferior or equal to actual "
+                f"lexsort_depth: sortorder {self.sortorder} "
+                f"with lexsort_depth {self._lexsort_depth()}"
+            )
 
         codes = [
             self._validate_codes(level, code) for level, code in zip(levels, codes)
         ]
-        new_codes = FrozenList(codes)
-        return new_codes
+        return FrozenList(codes)
 
     @classmethod
     def from_arrays(cls, arrays, sortorder=None, names=lib.no_default) -> "MultiIndex":
@@ -490,7 +484,7 @@ class MultiIndex(Index):
         elif is_iterator(tuples):
             tuples = list(tuples)
 
-        if len(tuples) == 0:
+        if not tuples:
             if names is None:
                 raise TypeError("Cannot infer number of levels from empty list")
             arrays = [[]] * len(names)
@@ -835,10 +829,7 @@ class MultiIndex(Index):
             if not is_list_like(levels) or not is_list_like(levels[0]):
                 raise TypeError("Levels must be list of lists-like")
 
-        if inplace:
-            idx = self
-        else:
-            idx = self._shallow_copy()
+        idx = self if inplace else self._shallow_copy()
         idx._reset_identity()
         idx._set_levels(
             levels, level=level, validate=True, verify_integrity=verify_integrity
@@ -968,10 +959,7 @@ class MultiIndex(Index):
             if not is_list_like(codes) or not is_list_like(codes[0]):
                 raise TypeError("Codes must be list of lists-like")
 
-        if inplace:
-            idx = self
-        else:
-            idx = self._shallow_copy()
+        idx = self if inplace else self._shallow_copy()
         idx._reset_identity()
         idx._set_codes(codes, level=level, verify_integrity=verify_integrity)
         if not inplace:
@@ -1570,8 +1558,7 @@ class MultiIndex(Index):
         Index(['d', 'e', 'f'], dtype='object', name='level_2')
         """
         level = self._get_level_number(level)
-        values = self._get_level_values(level)
-        return values
+        return self._get_level_values(level)
 
     @doc(Index.unique)
     def unique(self, level=None):
@@ -2450,7 +2437,7 @@ class MultiIndex(Index):
         if not self.is_unique:
             raise ValueError("Reindexing only valid with uniquely valued Index objects")
 
-        if method == "pad" or method == "backfill":
+        if method in ["pad", "backfill"]:
             if tolerance is not None:
                 raise NotImplementedError(
                     "tolerance not implemented yet for MultiIndex"
@@ -2605,7 +2592,7 @@ class MultiIndex(Index):
             idx = self._get_loc_single_level_index(lev, lab)
             if k < n - 1:
                 end = start + section.searchsorted(idx, side="right")
-                start = start + section.searchsorted(idx, side="left")
+                start += section.searchsorted(idx, side="left")
             else:
                 return start + section.searchsorted(idx, side=side)
 
@@ -3268,10 +3255,7 @@ class MultiIndex(Index):
         if self.nlevels != other.nlevels:
             return False
 
-        for i in range(self.nlevels):
-            if not self.levels[i].equals(other.levels[i]):
-                return False
-        return True
+        return all(self.levels[i].equals(other.levels[i]) for i in range(self.nlevels))
 
     # --------------------------------------------------------------------
     # Set Methods
@@ -3421,8 +3405,11 @@ class MultiIndex(Index):
             other_uniq = set(rvals)
             seen = set()
             uniq_tuples = [
-                x for x in lvals if x in other_uniq and not (x in seen or seen.add(x))
+                x
+                for x in lvals
+                if x in other_uniq and x not in seen and not seen.add(x)
             ]
+
 
         if sort is None:
             uniq_tuples = sorted(uniq_tuples)

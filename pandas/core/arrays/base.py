@@ -332,8 +332,7 @@ class ExtensionArray:
         # This needs to be implemented so that pandas recognizes extension
         # arrays as list-like. The default implementation makes successive
         # calls to ``__getitem__``, which may be slower than necessary.
-        for i in range(len(self)):
-            yield self[i]
+        yield from self
 
     def __eq__(self, other: Any) -> ArrayLike:
         """
@@ -530,8 +529,7 @@ class ExtensionArray:
         # 2. argsort : total control over sorting.
         ascending = nv.validate_argsort_with_ascending(ascending, args, kwargs)
 
-        result = nargsort(self, kind=kind, ascending=ascending, na_position="last")
-        return result
+        return nargsort(self, kind=kind, ascending=ascending, na_position="last")
 
     def argmin(self):
         """
@@ -760,11 +758,11 @@ class ExtensionArray:
         boolean
             Whether the arrays are equivalent.
         """
-        if not type(self) == type(other):
-            return False
-        elif not self.dtype == other.dtype:
-            return False
-        elif not len(self) == len(other):
+        if (
+            type(self) != type(other)
+            or self.dtype != other.dtype
+            or len(self) != len(other)
+        ):
             return False
         else:
             equal_values = self == other
